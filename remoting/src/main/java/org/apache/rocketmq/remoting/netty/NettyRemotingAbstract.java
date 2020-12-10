@@ -278,7 +278,7 @@ public abstract class NettyRemotingAbstract {
                 }
             };
 
-//            rejectRequest这个还不知道是做什么用的 看名称好像是处理器什么拒绝请求，但是所有的实现类都返回false
+//            rejectRequest这个还不知道是做什么用的 看名称好像是处理器是否拒绝请求，但是所有的实现类都返回false
             if (pair.getObject1().rejectRequest()) {
                 final RemotingCommand response = RemotingCommand.createResponseCommand(RemotingSysResponseCode.SYSTEM_BUSY,
                     "[REJECTREQUEST]system busy, start flow control for a while");
