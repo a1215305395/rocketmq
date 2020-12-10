@@ -142,15 +142,22 @@ public class RemotingCommand {
     }
 
     public static RemotingCommand decode(final ByteBuffer byteBuffer) {
+
+//        获取这个帧的总长度
         int length = byteBuffer.limit();
+//        获取头部总长度 (1 + 3 byte) (ProtocolType + 头部长度)
         int oriHeaderLen = byteBuffer.getInt();
+//        获取头部长度
         int headerLength = getHeaderLength(oriHeaderLen);
 
+//        获取头部数据
         byte[] headerData = new byte[headerLength];
         byteBuffer.get(headerData);
 
+//        根据头部数据和ProtocolType组成RemotingCommand
         RemotingCommand cmd = headerDecode(headerData, getProtocolType(oriHeaderLen));
 
+//        获取body内容
         int bodyLength = length - 4 - headerLength;
         byte[] bodyData = null;
         if (bodyLength > 0) {
@@ -163,9 +170,18 @@ public class RemotingCommand {
     }
 
     public static int getHeaderLength(int length) {
+//                      两个十六进制为1字节  0xFFFFFF 为 3字节 也就是 这个是取int的前三个字节
         return length & 0xFFFFFF;
     }
 
+
+    /**
+     * 头部数据有两种序列化方式 JSON或者ROCKETMQ
+     * 默认是 JSON @see org.apache.rocketmq.remoting.protocol.RemotingCommand#serializeTypeConfigInThisServer
+     * @param headerData 头部数据
+     * @param type 序列化类型(JSON || ROCKETMQ)
+     * @return 序列化头部数据后的RemotingCommand
+     */
     private static RemotingCommand headerDecode(byte[] headerData, SerializeType type) {
         switch (type) {
             case JSON:

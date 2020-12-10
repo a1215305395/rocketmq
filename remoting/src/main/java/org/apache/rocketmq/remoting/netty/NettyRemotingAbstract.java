@@ -185,7 +185,8 @@ public abstract class NettyRemotingAbstract {
      * this.processorTable 来自于
      * @see org.apache.rocketmq.client.impl.MQClientAPIImpl#MQClientAPIImpl 客户端
      * @see org.apache.rocketmq.broker.BrokerController#registerProcessor 服务端
-     *
+     * ExecutorService
+     * @see org.apache.rocketmq.broker.latency.BrokerFixedThreadPoolExecutor
      *, 如果没有找到
      *
      * @param ctx channel handler context.
@@ -209,27 +210,51 @@ public abstract class NettyRemotingAbstract {
                 @Override
                 public void run() {
                     try {
+//                        Before回调方法(好像都是权限相关)
                         doBeforeRpcHooks(RemotingHelper.parseChannelRemoteAddr(ctx.channel()), cmd);
+
+//                        创建响应回调对象
                         final RemotingResponseCallback callback = new RemotingResponseCallback() {
                             @Override
                             public void callback(RemotingCommand response) {
+
+//                                After回调
                                 doAfterRpcHooks(RemotingHelper.parseChannelRemoteAddr(ctx.channel()), cmd, response);
-                                if (!cmd.isOnewayRPC()) {
-                                    if (response != null) {
-                                        response.setOpaque(opaque);
-                                        response.markResponseType();
-                                        try {
-                                            ctx.writeAndFlush(response);
-                                        } catch (Throwable e) {
-                                            log.error("process request over, but response failed", e);
-                                            log.error(cmd.toString());
-                                            log.error(response.toString());
-                                        }
-                                    } else {
-                                    }
+
+                                if (cmd.isOnewayRPC() && response == null) {
+                                    return;
                                 }
+
+                                response.setOpaque(opaque);
+                                response.markResponseType();
+                                try {
+                                    ctx.writeAndFlush(response);
+                                } catch (Throwable e) {
+                                    log.error("process request over, but response failed", e);
+                                    log.error(cmd.toString());
+                                    log.error(response.toString());
+                                }
+
+//                                PS: 这种写法太难看了
+//                                if (!cmd.isOnewayRPC()) {
+//                                    if (response != null) {
+//                                        response.setOpaque(opaque);
+//                                        response.markResponseType();
+//                                        try {
+//                                            ctx.writeAndFlush(response);
+//                                        } catch (Throwable e) {
+//                                            log.error("process request over, but response failed", e);
+//                                            log.error(cmd.toString());
+//                                            log.error(response.toString());
+//                                        }
+//                                    } else {
+//                                    }
+//                                }
                             }
                         };
+
+//                            TODO: 处理请求
+//                        根据处理器的类型                    异步请求处理
                         if (pair.getObject1() instanceof AsyncNettyRequestProcessor) {
                             AsyncNettyRequestProcessor processor = (AsyncNettyRequestProcessor)pair.getObject1();
                             processor.asyncProcessRequest(ctx, cmd, callback);
@@ -242,6 +267,7 @@ public abstract class NettyRemotingAbstract {
                         log.error("process request exception", e);
                         log.error(cmd.toString());
 
+//                        如果不是oneWay发送 则需要回复res
                         if (!cmd.isOnewayRPC()) {
                             final RemotingCommand response = RemotingCommand.createResponseCommand(RemotingSysResponseCode.SYSTEM_ERROR,
                                 RemotingHelper.exceptionSimpleDesc(e));
@@ -252,6 +278,7 @@ public abstract class NettyRemotingAbstract {
                 }
             };
 
+//            rejectRequest这个还不知道是做什么用的 看名称好像是处理器什么拒绝请求，但是所有的实现类都返回false
             if (pair.getObject1().rejectRequest()) {
                 final RemotingCommand response = RemotingCommand.createResponseCommand(RemotingSysResponseCode.SYSTEM_BUSY,
                     "[REJECTREQUEST]system busy, start flow control for a while");
@@ -261,6 +288,7 @@ public abstract class NettyRemotingAbstract {
             }
 
             try {
+//                把处理Runner channel command包装起来 并执行
                 final RequestTask requestTask = new RequestTask(run, ctx.channel(), cmd);
                 pair.getObject2().submit(requestTask);
             } catch (RejectedExecutionException e) {
@@ -279,6 +307,8 @@ public abstract class NettyRemotingAbstract {
                 }
             }
         } else {
+//            PS: 我习惯是先 if (illegal) return error; 这样的写会包很长
+//            如果未查找到 code 对应的执行器 返回错误
             String error = " request type " + cmd.getCode() + " not supported";
             final RemotingCommand response =
                 RemotingCommand.createResponseCommand(RemotingSysResponseCode.REQUEST_CODE_NOT_SUPPORTED, error);
