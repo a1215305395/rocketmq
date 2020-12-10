@@ -23,11 +23,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import java.net.SocketAddress;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -186,12 +182,26 @@ public abstract class NettyRemotingAbstract {
     /**
      * Process incoming request command issued by remote peer.
      *
+     * this.processorTable 来自于
+     * @see org.apache.rocketmq.client.impl.MQClientAPIImpl#MQClientAPIImpl 客户端
+     * @see org.apache.rocketmq.broker.BrokerController#registerProcessor 服务端
+     *
+     *, 如果没有找到
+     *
      * @param ctx channel handler context.
      * @param cmd request command.
      */
     public void processRequestCommand(final ChannelHandlerContext ctx, final RemotingCommand cmd) {
+//         根据code取出对应执行器执行
         final Pair<NettyRequestProcessor, ExecutorService> matched = this.processorTable.get(cmd.getCode());
-        final Pair<NettyRequestProcessor, ExecutorService> pair = null == matched ? this.defaultRequestProcessor : matched;
+//         默认为 this.defaultRequestProcessor
+//        final Pair<NettyRequestProcessor, ExecutorService> pair = null == matched ? this.defaultRequestProcessor : matched;
+
+//        java8写法
+        final Pair<NettyRequestProcessor, ExecutorService> pair = Optional.ofNullable(processorTable.get(cmd.getCode()))
+            .orElse(defaultRequestProcessor);
+
+//        我理解是 ackNum
         final int opaque = cmd.getOpaque();
 
         if (pair != null) {
@@ -581,6 +591,8 @@ public abstract class NettyRemotingAbstract {
             log.info(this.getServiceName() + " service started");
 
             final ChannelEventListener listener = NettyRemotingAbstract.this.getChannelEventListener();
+
+//            TODO NettyEvent事件
 
             while (!this.isStopped()) {
                 try {

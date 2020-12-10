@@ -209,12 +209,18 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                     @Override
                     public void initChannel(SocketChannel ch) throws Exception {
                         ch.pipeline()
+//                            这个是认证的处理器
                             .addLast(defaultEventExecutorGroup, HANDSHAKE_HANDLER_NAME, handshakeHandler)
                             .addLast(defaultEventExecutorGroup,
+//                                编码器
                                 encoder,
+//                                解码器
                                 new NettyDecoder(),
+//                                心跳
                                 new IdleStateHandler(0, 0, nettyServerConfig.getServerChannelMaxIdleTimeSeconds()),
+//                                链接管理器 (这个链接管理器会推送各种事件)
                                 connectionManageHandler,
+//
                                 serverHandler
                             );
                     }
@@ -421,6 +427,11 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
         }
     }
 
+    /**
+    * 每次有新链接时，会把这个链接包装成事件
+    * 并由
+    * @see NettyRemotingAbstract#nettyEventExecutor 来处理
+    */
     @ChannelHandler.Sharable
     class NettyConnectManageHandler extends ChannelDuplexHandler {
         @Override
