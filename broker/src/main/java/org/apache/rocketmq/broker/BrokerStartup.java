@@ -48,6 +48,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.rocketmq.remoting.netty.TlsSystemConfig.TLS_ENABLE;
 
+/**
+ * 主入口
+ */
 public class BrokerStartup {
     public static Properties properties = null;
     public static CommandLine commandLine = null;
@@ -58,6 +61,9 @@ public class BrokerStartup {
         start(createBrokerController(args));
     }
 
+    /**
+     * 主启动方法
+     */
     public static BrokerController start(BrokerController controller) {
         try {
 
@@ -100,6 +106,8 @@ public class BrokerStartup {
 
         try {
             //PackageConflictDetect.detectFastjson();
+
+//            解析入参
             Options options = ServerUtil.buildCommandlineOptions(new Options());
             commandLine = ServerUtil.parseCmdLine("mqbroker", args, buildCommandlineOptions(options),
                 new PosixParser());
@@ -113,14 +121,17 @@ public class BrokerStartup {
 
             nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE,
                 String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
+//            默认端口10911
             nettyServerConfig.setListenPort(10911);
             final MessageStoreConfig messageStoreConfig = new MessageStoreConfig();
 
+//            为slave时 减少内存最大内存占用比例
             if (BrokerRole.SLAVE == messageStoreConfig.getBrokerRole()) {
                 int ratio = messageStoreConfig.getAccessMessageInMemoryMaxRatio() - 10;
                 messageStoreConfig.setAccessMessageInMemoryMaxRatio(ratio);
             }
 
+//            读取配置未加
             if (commandLine.hasOption('c')) {
                 String file = commandLine.getOptionValue('c');
                 if (file != null) {
@@ -162,12 +173,17 @@ public class BrokerStartup {
                 }
             }
 
+//            消息存储政策
             switch (messageStoreConfig.getBrokerRole()) {
+//                异步刷盘
                 case ASYNC_MASTER:
+//                同步刷盘
                 case SYNC_MASTER:
                     brokerConfig.setBrokerId(MixAll.MASTER_ID);
                     break;
+//                slave
                 case SLAVE:
+//                      slave BrokerId大于0
                     if (brokerConfig.getBrokerId() <= 0) {
                         System.out.printf("Slave's brokerId must be > 0");
                         System.exit(-3);
@@ -178,6 +194,7 @@ public class BrokerStartup {
                     break;
             }
 
+//            是否启用 RocketMQ 主从切换
             if (messageStoreConfig.isEnableDLegerCommitLog()) {
                 brokerConfig.setBrokerId(-1);
             }
@@ -225,6 +242,7 @@ public class BrokerStartup {
                 System.exit(-3);
             }
 
+//            增加应用结束hook
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 private volatile boolean hasShutdown = false;
                 private AtomicInteger shutdownTimes = new AtomicInteger(0);

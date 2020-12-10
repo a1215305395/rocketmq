@@ -152,15 +152,18 @@ public class MappedFileQueue {
             Arrays.sort(files);
             for (File file : files) {
 
+//                如果文件大小和设置的不一致
                 if (file.length() != this.mappedFileSize) {
                     log.warn(file + "\t" + file.length()
                         + " length not matched message store config value, please check it manually");
                     return false;
                 }
 
+//                创建真正用于读写的文件对象
                 try {
                     MappedFile mappedFile = new MappedFile(file.getPath(), mappedFileSize);
 
+//                    这里不太了解 全部设置到文件末尾？ 可能是之后流程还会继续设置这些属性
                     mappedFile.setWrotePosition(this.mappedFileSize);
                     mappedFile.setFlushedPosition(this.mappedFileSize);
                     mappedFile.setCommittedPosition(this.mappedFileSize);

@@ -128,6 +128,7 @@ public class DefaultMessageStore implements MessageStore {
         if (messageStoreConfig.isEnableDLegerCommitLog()) {
             this.commitLog = new DLedgerCommitLog(this);
         } else {
+//            初始化CommitLog文件
             this.commitLog = new CommitLog(this);
         }
         this.consumeQueueTable = new ConcurrentHashMap<>(32);
@@ -182,6 +183,7 @@ public class DefaultMessageStore implements MessageStore {
         boolean result = true;
 
         try {
+//            有一个叫abort的文件，会在应用正常结束时删除 如果现在还存在 说明上一个并非正常退出
             boolean lastExitOK = !this.isTempFileExist();
             log.info("last shutdown {}", lastExitOK ? "normally" : "abnormally");
 
@@ -196,11 +198,14 @@ public class DefaultMessageStore implements MessageStore {
             result = result && this.loadConsumeQueue();
 
             if (result) {
+//                初始化最后刷盘的时间点
                 this.storeCheckpoint =
                     new StoreCheckpoint(StorePathConfigHelper.getStoreCheckpoint(this.messageStoreConfig.getStorePathRootDir()));
 
+//                index文件加载
                 this.indexService.load(lastExitOK);
 
+//                恢复一些数据 例如索引和queue偏移量
                 this.recover(lastExitOK);
 
                 log.info("load over, and the max phy offset = {}", this.getMaxPhyOffset());
@@ -222,6 +227,7 @@ public class DefaultMessageStore implements MessageStore {
      */
     public void start() throws Exception {
 
+//        文件锁 保证当前用户只有一个应用启动
         lock = lockFile.getChannel().tryLock(0, 1, false);
         if (lock == null || lock.isShared() || !lock.isValid()) {
             throw new RuntimeException("Lock failed,MQ already started");
@@ -1392,12 +1398,14 @@ public class DefaultMessageStore implements MessageStore {
                         } catch (NumberFormatException e) {
                             continue;
                         }
+//                        这个就是消毒队列索引了
                         ConsumeQueue logic = new ConsumeQueue(
-                            topic,
-                            queueId,
+                            topic, //主题
+                            queueId, //队列offset
                             StorePathConfigHelper.getStorePathConsumeQueue(this.messageStoreConfig.getStorePathRootDir()),
                             this.getMessageStoreConfig().getMappedFileSizeConsumeQueue(),
                             this);
+//                        放进map
                         this.putConsumeQueue(topic, queueId, logic);
                         if (!logic.load()) {
                             return false;
@@ -1458,6 +1466,7 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     public void recoverTopicQueueTable() {
+//        设置queue和偏移量
         HashMap<String/* topic-queueid */, Long/* offset */> table = new HashMap<String, Long>(1024);
         long minPhyOffset = this.commitLog.getMinOffset();
         for (ConcurrentMap<Integer, ConsumeQueue> maps : this.consumeQueueTable.values()) {
