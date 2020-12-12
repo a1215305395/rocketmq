@@ -16,6 +16,7 @@
  */
 package org.apache.rocketmq.common.sysflag;
 
+// 这里获取事务标记
 public class MessageSysFlag {
     public final static int COMPRESSED_FLAG = 0x1;
     public final static int MULTI_TAGS_FLAG = 0x1 << 1;

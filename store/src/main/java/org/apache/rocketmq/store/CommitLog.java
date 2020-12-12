@@ -81,9 +81,12 @@ public class CommitLog {
         );
         this.defaultMessageStore = defaultMessageStore;
 
+//        刷盘策略
         if (FlushDiskType.SYNC_FLUSH == defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
+//            同步
             this.flushCommitLogService = new GroupCommitService();
         } else {
+//            异步
             this.flushCommitLogService = new FlushRealTimeService();
         }
 
@@ -1242,6 +1245,7 @@ public class CommitLog {
         protected static final int RETRY_TIMES_OVER = 10;
     }
 
+//    TODO 事务消息服务
     class CommitRealTimeService extends FlushCommitLogService {
 
         private long lastCommitTimestamp = 0;
@@ -1295,6 +1299,7 @@ public class CommitLog {
         }
     }
 
+//    TODO 异步刷盘
     class FlushRealTimeService extends FlushCommitLogService {
         private long lastFlushTimestamp = 0;
         private long printTimes = 0;
@@ -1408,6 +1413,7 @@ public class CommitLog {
 
     /**
      * GroupCommit Service
+     * TODO 同步刷盘
      */
     class GroupCommitService extends FlushCommitLogService {
         private volatile List<GroupCommitRequest> requestsWrite = new ArrayList<GroupCommitRequest>();

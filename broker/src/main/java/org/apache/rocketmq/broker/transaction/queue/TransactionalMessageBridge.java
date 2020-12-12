@@ -118,15 +118,20 @@ public class TransactionalMessageBridge {
 
     private PullResult getMessage(String group, String topic, int queueId, long offset, int nums,
         SubscriptionData sub) {
+
+//        在commitLog里查找msg
         GetMessageResult getMessageResult = store.getMessage(group, topic, queueId, offset, nums, null);
 
         if (getMessageResult != null) {
             PullStatus pullStatus = PullStatus.NO_NEW_MSG;
             List<MessageExt> foundList = null;
             switch (getMessageResult.getStatus()) {
+//                有新消息
                 case FOUND:
                     pullStatus = PullStatus.FOUND;
+//                    消息编码
                     foundList = decodeMsgList(getMessageResult);
+//                    增加一些计数
                     this.brokerController.getBrokerStatsManager().incGroupGetNums(group, topic,
                         getMessageResult.getMessageCount());
                     this.brokerController.getBrokerStatsManager().incGroupGetSize(group, topic,
@@ -139,17 +144,20 @@ public class TransactionalMessageBridge {
                         this.brokerController.getMessageStore().now() - foundList.get(foundList.size() - 1)
                             .getStoreTimestamp());
                     break;
+//                    没有找到消息
                 case NO_MATCHED_MESSAGE:
                     pullStatus = PullStatus.NO_MATCHED_MSG;
                     LOGGER.warn("No matched message. GetMessageStatus={}, topic={}, groupId={}, requestOffset={}",
                         getMessageResult.getStatus(), topic, group, offset);
                     break;
+//                    queue中无消息 或 偏移超出了
                 case NO_MESSAGE_IN_QUEUE:
                 case OFFSET_OVERFLOW_ONE:
                     pullStatus = PullStatus.NO_NEW_MSG;
                     LOGGER.warn("No new message. GetMessageStatus={}, topic={}, groupId={}, requestOffset={}",
                         getMessageResult.getStatus(), topic, group, offset);
                     break;
+//                    偏移量非法
                 case MESSAGE_WAS_REMOVING:
                 case NO_MATCHED_LOGIC_QUEUE:
                 case OFFSET_FOUND_NULL:

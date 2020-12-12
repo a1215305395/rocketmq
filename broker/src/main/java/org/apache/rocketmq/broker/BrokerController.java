@@ -501,6 +501,7 @@ public class BrokerController {
                     log.warn("FileWatchService created error, can't load the certificate dynamically");
                 }
             }
+//            初始化事务消息相关的类
             initialTransaction();
             initialAcl();
             initialRpcHooks();
@@ -874,39 +875,48 @@ public class BrokerController {
     }
 
     public void start() throws Exception {
+//        存储服务启动
         if (this.messageStore != null) {
             this.messageStore.start();
         }
 
+//        netty服务启动
         if (this.remotingServer != null) {
             this.remotingServer.start();
         }
 
+//        vip
         if (this.fastRemotingServer != null) {
             this.fastRemotingServer.start();
         }
 
+//        监听文件状态
         if (this.fileWatchService != null) {
             this.fileWatchService.start();
         }
 
+//        这个组件承担了与NameServer建立连接并发送请求的职责
         if (this.brokerOuterAPI != null) {
             this.brokerOuterAPI.start();
         }
 
+//        客户端拉取消息服务
         if (this.pullRequestHoldService != null) {
             this.pullRequestHoldService.start();
         }
 
+//        检查channel状态的服务
         if (this.clientHousekeepingService != null) {
             this.clientHousekeepingService.start();
         }
 
+//        消息过滤服务
         if (this.filterServerManager != null) {
             this.filterServerManager.start();
         }
 
         if (!messageStoreConfig.isEnableDLegerCommitLog()) {
+//            非主从切换下的策略
             startProcessorByHa(messageStoreConfig.getBrokerRole());
             handleSlaveSynchronize(messageStoreConfig.getBrokerRole());
             this.registerBrokerAll(true, false, true);
