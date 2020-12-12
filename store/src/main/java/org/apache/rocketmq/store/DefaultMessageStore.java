@@ -391,6 +391,9 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 消息合法性判断
+     */
     private PutMessageStatus checkMessage(MessageExtBrokerInner msg) {
         if (msg.getTopic().length() > Byte.MAX_VALUE) {
             log.warn("putMessage message topic length too long " + msg.getTopic().length());
@@ -524,12 +527,14 @@ public class DefaultMessageStore implements MessageStore {
             return new PutMessageResult(checkStoreStatus, null);
         }
 
+//        判断消息合法性
         PutMessageStatus msgCheckStatus = this.checkMessage(msg);
         if (msgCheckStatus == PutMessageStatus.MESSAGE_ILLEGAL) {
             return new PutMessageResult(msgCheckStatus, null);
         }
 
         long beginTime = this.getSystemClock().now();
+//        保存消息
         PutMessageResult result = this.commitLog.putMessage(msg);
         long elapsedTime = this.getSystemClock().now() - beginTime;
         if (elapsedTime > 500) {

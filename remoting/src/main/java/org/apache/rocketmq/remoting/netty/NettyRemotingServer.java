@@ -220,7 +220,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                                 new IdleStateHandler(0, 0, nettyServerConfig.getServerChannelMaxIdleTimeSeconds()),
 //                                链接管理器 (这个链接管理器会推送各种事件)
                                 connectionManageHandler,
-//
+//                                消息处理
                                 serverHandler
                             );
                     }
