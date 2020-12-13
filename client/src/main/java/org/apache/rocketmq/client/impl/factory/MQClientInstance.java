@@ -221,25 +221,32 @@ public class MQClientInstance {
         return mqList;
     }
 
+    /**
+     * 启动服务 (重要)
+     */
     public void start() throws MQClientException {
 
         synchronized (this) {
             switch (this.serviceState) {
                 case CREATE_JUST:
                     this.serviceState = ServiceState.START_FAILED;
-                    // If not specified,looking address from name server
+                    // 如果未指定，则从名称服务器查找地址
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
-                    // Start request-response channel
+                    // 启动netty服务
                     this.mQClientAPIImpl.start();
                     // Start various schedule tasks
+                    // 启动各种定时任务
                     this.startScheduledTask();
                     // Start pull service
+                    // 启动拉取消息的服务
                     this.pullMessageService.start();
                     // Start rebalance service
+                    // 启动重负载服务
                     this.rebalanceService.start();
                     // Start push service
+                    // 启动推送消息服务
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
                     log.info("the client factory [{}] start OK", this.clientId);
                     this.serviceState = ServiceState.RUNNING;
@@ -255,7 +262,7 @@ public class MQClientInstance {
     private void startScheduledTask() {
         if (null == this.clientConfig.getNamesrvAddr()) {
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
+//              获取nameServer
                 @Override
                 public void run() {
                     try {
@@ -268,7 +275,7 @@ public class MQClientInstance {
         }
 
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
+//          更新topic
             @Override
             public void run() {
                 try {
@@ -280,7 +287,7 @@ public class MQClientInstance {
         }, 10, this.clientConfig.getPollNameServerInterval(), TimeUnit.MILLISECONDS);
 
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
+//          删除下线broker和发送心跳
             @Override
             public void run() {
                 try {
@@ -293,7 +300,7 @@ public class MQClientInstance {
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
+//          保存消费偏移量
             @Override
             public void run() {
                 try {
@@ -305,7 +312,7 @@ public class MQClientInstance {
         }, 1000 * 10, this.clientConfig.getPersistConsumerOffsetInterval(), TimeUnit.MILLISECONDS);
 
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
+//          调整线程池
             @Override
             public void run() {
                 try {

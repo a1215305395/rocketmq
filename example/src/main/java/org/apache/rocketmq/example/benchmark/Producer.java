@@ -107,6 +107,8 @@ public class Producer {
         }, 10000, 10000);
 
         RPCHook rpcHook = aclEnable ? AclClient.getAclRPCHook() : null;
+
+//        生产者
         final DefaultMQProducer producer = new DefaultMQProducer("benchmark_producer", rpcHook, msgTraceEnable, null);
         producer.setInstanceName(Long.toString(System.currentTimeMillis()));
 

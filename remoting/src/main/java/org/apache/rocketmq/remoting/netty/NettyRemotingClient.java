@@ -68,6 +68,9 @@ import org.apache.rocketmq.remoting.exception.RemotingTimeoutException;
 import org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * 客户端netty
+ */
 public class NettyRemotingClient extends NettyRemotingAbstract implements RemotingClient {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(RemotingHelper.ROCKETMQ_REMOTING);
 
@@ -150,7 +153,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     @Override
     public void start() {
         this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(
-            nettyClientConfig.getClientWorkerThreads(),
+            nettyClientConfig.getClientWorkerThreads(), // default 4 thread
             new ThreadFactory() {
 
                 private AtomicInteger threadIndex = new AtomicInteger(0);
@@ -181,11 +184,16 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                     }
                     pipeline.addLast(
                         defaultEventExecutorGroup,
+//                        编码 RemotingCommand
                         new NettyEncoder(),
+//                        解码 RemotingCommand
                         new NettyDecoder(),
+//                        心跳
                         new IdleStateHandler(0, 0, nettyClientConfig.getClientChannelMaxIdleTimeSeconds()),
+//                        netty事件
                         new NettyConnectManageHandler(),
-                        new NettyClientHandler());
+                        new NettyClientHandler()
+                    );
                 }
             });
 
@@ -637,6 +645,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
 
             super.connect(ctx, remoteAddress, localAddress, promise);
 
+//            这里和服务端类似 都是有一个NettyEvent 但是 client都没有设置channelEventListener
             if (NettyRemotingClient.this.channelEventListener != null) {
                 NettyRemotingClient.this.putNettyEvent(new NettyEvent(NettyEventType.CONNECT, remote, ctx.channel()));
             }

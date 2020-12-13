@@ -148,6 +148,7 @@ public abstract class NettyRemotingAbstract {
      */
     public void processMessageReceived(ChannelHandlerContext ctx, RemotingCommand msg) throws Exception {
         final RemotingCommand cmd = msg;
+//        处理链接端发出的 REQUEST/RESPONSE 命令。(类似http request 和 response 一发一收)
         if (cmd != null) {
             switch (cmd.getType()) {
                 case REQUEST_COMMAND:
