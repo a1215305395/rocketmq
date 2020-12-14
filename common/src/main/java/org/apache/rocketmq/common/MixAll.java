@@ -135,6 +135,9 @@ public class MixAll {
         return 0;
     }
 
+    /**
+     * 这里采用两个文件 然后改名来实现替换
+     */
     public static void string2File(final String str, final String fileName) throws IOException {
 
         String tmpFile = fileName + ".tmp";

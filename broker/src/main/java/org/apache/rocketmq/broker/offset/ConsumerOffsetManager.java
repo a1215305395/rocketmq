@@ -16,14 +16,13 @@
  */
 package org.apache.rocketmq.broker.offset;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.broker.BrokerPathConfigHelper;
 import org.apache.rocketmq.common.ConfigManager;
@@ -37,7 +36,8 @@ public class ConsumerOffsetManager extends ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private static final String TOPIC_GROUP_SEPARATOR = "@";
 
-    private ConcurrentMap<String/* topic@group */, ConcurrentMap<Integer, Long>> offsetTable =
+//    存储偏移量对象
+    private ConcurrentMap<String/* topic@group */, ConcurrentMap<Integer/* queueId */, Long/* offset */>> offsetTable =
         new ConcurrentHashMap<String, ConcurrentMap<Integer, Long>>(512);
 
     private transient BrokerController brokerController;
@@ -139,6 +139,14 @@ public class ConsumerOffsetManager extends ConfigManager {
         }
     }
 
+    /**
+     *
+     * 查找偏移量
+     * @param group 组
+     * @param topic 主题
+     * @param queueId queue
+     * @return 偏移量
+     */
     public long queryOffset(final String group, final String topic, final int queueId) {
         // topic@group
         String key = topic + TOPIC_GROUP_SEPARATOR + group;
@@ -186,36 +194,72 @@ public class ConsumerOffsetManager extends ConfigManager {
     public Map<Integer, Long> queryMinOffsetInAllGroup(final String topic, final String filterGroups) {
 
         Map<Integer, Long> queueMinOffset = new HashMap<Integer, Long>();
-        Set<String> topicGroups = this.offsetTable.keySet();
-        if (!UtilAll.isBlank(filterGroups)) {
-            for (String group : filterGroups.split(",")) {
-                Iterator<String> it = topicGroups.iterator();
-                while (it.hasNext()) {
-                    if (group.equals(it.next().split(TOPIC_GROUP_SEPARATOR)[1])) {
-                        it.remove();
-                    }
-                }
-            }
-        }
 
-        for (Map.Entry<String, ConcurrentMap<Integer, Long>> offSetEntry : this.offsetTable.entrySet()) {
-            String topicGroup = offSetEntry.getKey();
-            String[] topicGroupArr = topicGroup.split(TOPIC_GROUP_SEPARATOR);
-            if (topic.equals(topicGroupArr[0])) {
-                for (Entry<Integer, Long> entry : offSetEntry.getValue().entrySet()) {
-                    long minOffset = this.brokerController.getMessageStore().getMinOffsetInQueue(topic, entry.getKey());
-                    if (entry.getValue() >= minOffset) {
-                        Long offset = queueMinOffset.get(entry.getKey());
-                        if (offset == null) {
-                            queueMinOffset.put(entry.getKey(), Math.min(Long.MAX_VALUE, entry.getValue()));
-                        } else {
-                            queueMinOffset.put(entry.getKey(), Math.min(entry.getValue(), offset));
-                        }
-                    }
-                }
-            }
+        HashSet<String> filterGroupsSet = Optional.ofNullable(filterGroups)
+            .filter(StringUtils::isNotBlank)
+            .map(str -> str.split(","))
+            .map(Arrays::asList)
+            .map(HashSet::new)
+            .orElseGet(HashSet::new);
 
-        }
+        queueMinOffset = this.offsetTable.entrySet().stream()
+//            过滤topic
+            .filter(entry -> StringUtils.equals(topic, entry.getKey().split(TOPIC_GROUP_SEPARATOR)[0]))
+            .filter(
+//                过滤组
+                entry -> filterGroupsSet.isEmpty()
+                    || filterGroupsSet.contains(entry.getKey().split(TOPIC_GROUP_SEPARATOR)[1]
+                )
+            )
+            .map(Entry::getValue)
+            .map(Map::entrySet)
+            .flatMap(Collection::stream)
+            .filter(
+//                过滤偏移量
+                entry -> entry.getValue() >= this.brokerController.getMessageStore()
+                    .getMaxOffsetInQueue(topic, entry.getKey())
+            )
+            .collect(Collectors.groupingBy(Entry::getKey, Collectors.toList()))
+            .entrySet().stream()
+            .map(
+//                获取最小偏移量
+                entry -> entry.getValue().stream()
+                    .min(Comparator.comparing(Entry::getValue)).orElse(null)
+            )
+            .filter(Objects::nonNull)
+            .collect(Collectors.toMap(Entry::getKey, Entry::getValue, (k1, k2) -> k2));
+
+
+//        Set<String> topicGroups = this.offsetTable.keySet();
+//        if (!UtilAll.isBlank(filterGroups)) {
+//            for (String group : filterGroups.split(",")) {
+//                Iterator<String> it = topicGroups.iterator();
+//                while (it.hasNext()) {
+//                    if (group.equals(it.next().split(TOPIC_GROUP_SEPARATOR)[1])) {
+//                        it.remove();
+//                    }
+//                }
+//            }
+//        }
+//
+//        for (Map.Entry<String, ConcurrentMap<Integer, Long>> offSetEntry : this.offsetTable.entrySet()) {
+//            String topicGroup = offSetEntry.getKey();
+//            String[] topicGroupArr = topicGroup.split(TOPIC_GROUP_SEPARATOR);
+//            if (topic.equals(topicGroupArr[0])) {
+//                for (Entry<Integer, Long> entry : offSetEntry.getValue().entrySet()) {
+//                    long minOffset = this.brokerController.getMessageStore().getMinOffsetInQueue(topic, entry.getKey());
+//                    if (entry.getValue() >= minOffset) {
+//                        Long offset = queueMinOffset.get(entry.getKey());
+//                        if (offset == null) {
+//                            queueMinOffset.put(entry.getKey(), Math.min(Long.MAX_VALUE, entry.getValue()));
+//                        } else {
+//                            queueMinOffset.put(entry.getKey(), Math.min(entry.getValue(), offset));
+//                        }
+//                    }
+//                }
+//            }
+//
+//        }
         return queueMinOffset;
     }
 
